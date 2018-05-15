@@ -888,6 +888,75 @@ local function getPolygonPolygonIntersection( polygon1, polygon2 )
 	return #choices > 0 and choices
 end
 
+-- Returns whether two polygons intersect.
+local function getPolygonPolygonIntersectionPolygon( polygon1, polygon2 )
+	local choices = {}
+	local choices2 = {}
+
+	for index1 = 1, #polygon1, 2 do
+		local inside = checkPolygonPoint(polygon1[index1], polygon1[index1 + 1], polygon2)
+		if inside then
+			choices[#choices + 1] = {polygon1[index1], polygon1[index1 + 1]}
+		end
+
+		local intersections = getPolygonSegmentIntersection( polygon1[index1], polygon1[index1 + 1], cycle( polygon1, index1 + 2 ), cycle( polygon1, index1 + 3 ), polygon2 )
+		if intersections then
+			for index2 = 1, #intersections do
+				choices[#choices + 1] = intersections[index2]
+			end
+		end
+	end
+
+	choices = removeDuplicatePairs(choices)
+
+	for i = #choices, 1, -1 do
+		if type( choices[i][1] ) == 'table' then -- Remove co-linear pairs.
+			table.remove( choices, i )
+		end
+	end
+
+	for index1 = 1, #polygon2, 2 do
+		local inside = checkPolygonPoint(polygon2[index1], polygon2[index1 + 1], polygon1)
+		if inside then
+			choices2[#choices2 + 1] = {polygon2[index1], polygon2[index1 + 1]}
+		end
+		local intersections = getPolygonSegmentIntersection( polygon2[index1], polygon2[index1 + 1], cycle( polygon2, index1 + 2 ), cycle( polygon2, index1 + 3 ), polygon1 )
+		if intersections then
+			for index2 = 1, #intersections do
+				choices2[#choices2 + 1] = intersections[index2]
+			end
+		end
+	end
+	
+	choices2 = removeDuplicatePairs(choices2)
+
+	for i = #choices2, 1, -1 do
+		if type( choices2[i][1] ) == 'table' then -- Remove co-linear pairs.
+			table.remove( choices2, i )
+		end
+	end
+
+	for k, v in ipairs(choices2) do
+		table.insert(choices, v)
+	end
+
+	choices = removeDuplicatePairs(choices)
+
+	local center = {0, 0}
+	for i = 1, #choices do
+		center[1] = center[1] + choices[i][1]
+		center[2] = center[2] + choices[i][2]
+	end
+	center[1] = center[1] / #choices
+	center[2] = center[2] / #choices
+
+	table.sort(choices, function (a, b)
+		return math.atan2(a[2] - center[2], a[1] - center[1]) < math.atan2(b[2] - center[2], b[1] - center[1])
+	end)
+
+	return #choices > 0 and choices
+end
+
 -- Returns whether the circle intersects the polygon.
 -- x, y, radius, polygonPoints
 local function getPolygonCircleIntersection( x, y, radius, ... )
@@ -1341,6 +1410,7 @@ return {
 		checkPoint = checkPolygonPoint,
 		isSegmentInside = isSegmentInsidePolygon,
 		getPolygonIntersection = getPolygonPolygonIntersection,
+		getPolygonIntersectionPolygon = getPolygonPolygonIntersectionPolygon,
 		getCircleIntersection = getPolygonCircleIntersection,
 		isCircleInside = isCircleInsidePolygon,
 		isPolygonInside = isPolygonInsidePolygon,
